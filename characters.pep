@@ -57,7 +57,11 @@ _is_unicode_punctuation(point: uint): bool {
 
 # The value of the hexadecimal digits of `s` from `start` up to `end`.
 _hex(s: String, start: ulong, end: ulong): uint {
-    return uint.parse(s.substr_bytes(start, end - start), 16).value();
+    var value: uint = 0;
+    for (var index in start..end) {
+        value = value * 16 + s.byte_at(index).digit_value(16).value() as uint;
+    }
+    return value;
 }
 
 # The code point that ends just before byte `index` of `s`, or a line
@@ -100,12 +104,6 @@ _starts_at(s: String, index: ulong, prefix: String): bool {
 # `s` with `&`, `<`, `>` and `"` escaped for HTML text and attributes.
 _escape_html(s: String): String {
     var out = StringBuilder();
-    _append_escaped(out, s);
-    return out.to_string();
-}
-
-# Appends `s` to `out` with `&`, `<`, `>` and `"` escaped.
-_append_escaped(out: StringBuilder, s: String) {
     var start: ulong = 0;
     for (var index in 0..s.size) {
         var c = s.byte_at(index);
@@ -126,6 +124,7 @@ _append_escaped(out: StringBuilder, s: String) {
         start = index + 1;
     }
     out.append(s.substr_bytes(start, s.size - start));
+    return out.to_string();
 }
 
 # The length of the entity or numeric character reference at byte `index`
@@ -164,18 +163,44 @@ _entity_at(s: String, index: ulong): (ulong, String)? {
     if (position == name_start || position >= s.size || s.byte_at(position) != ';') {
         return Optional<(ulong, String)>.Empty;
     }
-    var found = _ENTITIES.find("\n" + s.substr_bytes(name_start, position - name_start) + ":");
-    if (found < 0) {
+    var points = _look_up(_ENTITIES, s.substr_bytes(name_start, position - name_start), false);
+    if (points.is_empty()) {
         return Optional<(ulong, String)>.Empty;
     }
-    var points_start = (found as ulong) + position - name_start + 2;
-    var points = Array<uint>();
-    for (var hex in _ENTITIES.substr_bytes(
-        points_start, (_ENTITIES.find("\n", points_start) as ulong) - points_start
-    ).split(",")) {
-        points.append(uint.parse(hex, 16).value());
+    return Optional<(ulong, String)>.Value((position + 1 - index, _from_code_points(points.value())));
+}
+
+# The code points a table of `tables.pep` (sorted `\nkey:code points`
+# records) holds for `key`, a name or, when `numeric`, a code point in
+# hexadecimal. A binary search, since the tables are large.
+_look_up(table: String, key: String, numeric: bool): Array<uint>? {
+    var low: ulong = 1;
+    var high = table.size - 1;
+    while (low < high) {
+        var record = (low + high) / 2;
+        while (table.byte_at(record - 1) != '\n') {
+            record -= 1;
+        }
+        var colon = table.find(":", record) as ulong;
+        var end = table.find("\n", colon) as ulong;
+        # Hexadecimal keys order by length first.
+        var order = numeric && key.size != colon - record ?
+            (key.size < colon - record ? -1 : 1) :
+            key.compare(table.substr_bytes(record, colon - record));
+        if (order == 0) {
+            var points = Array<uint>();
+            for (var hex in table.substr_bytes(colon + 1, end - colon - 1).split(",")) {
+                points.append(uint.parse(hex, 16).value());
+            }
+            return Optional<Array<uint>>.Value(points);
+        }
+        if (order < 0) {
+            high = record;
+        } else {
+            low = end + 1;
+        }
     }
-    return Optional<(ulong, String)>.Value((position + 1 - index, _from_code_points(points)));
+    return Optional<Array<uint>>.Empty;
 }
 
 # The UTF-8 text of `points`.
@@ -244,19 +269,8 @@ _normalize_label(label: String): String {
             continue;
         }
         var (point, run) = text.Utf8.code_point_at(label, index);
-        var found = _CASE_FOLDING.find($"\n{point:X}:");
-        if (found < 0) {
-            out.append(label.substr_bytes(index, run));
-        } else {
-            var start = _CASE_FOLDING.find(":", found as ulong) as ulong + 1;
-            var points = Array<uint>();
-            for (var hex in _CASE_FOLDING.substr_bytes(
-                start, (_CASE_FOLDING.find("\n", start) as ulong) - start
-            ).split(",")) {
-                points.append(uint.parse(hex, 16).value());
-            }
-            out.append(_from_code_points(points));
-        }
+        var folded = _look_up(_CASE_FOLDING, $"{point:X}", true);
+        out.append(folded.is_value() ? _from_code_points(folded.value()) : label.substr_bytes(index, run));
         index += run;
     }
     return out.to_string();
