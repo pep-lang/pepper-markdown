@@ -1,0 +1,32 @@
+pepper-markdown
+Copyright the pepper-markdown authors. Licensed under the Apache License,
+Version 2.0 (see LICENSE).
+
+This repository includes test data from other projects, under their own
+licenses:
+
+tests/testdata/commonmark-spec.json
+    The examples of the CommonMark Spec, version 0.31.2, as published at
+    https://spec.commonmark.org/0.31.2/spec.json.
+    Copyright 2014-24 John MacFarlane.
+    Licensed under the Creative Commons Attribution-ShareAlike 4.0
+    International License (CC BY-SA 4.0):
+    https://creativecommons.org/licenses/by-sa/4.0/
+
+tests/testdata/gfm-extensions.json
+    The extension examples of the GitHub Flavored Markdown Spec, version
+    0.29-gfm, extracted by scripts/gfm_examples.py from
+    https://github.com/github/cmark-gfm/blob/master/test/spec.txt (tabs
+    shown as arrows there are tabs here; nothing else is changed).
+    By John MacFarlane and GitHub, Inc.
+    Licensed under the Creative Commons Attribution-ShareAlike 4.0
+    International License (CC BY-SA 4.0):
+    https://creativecommons.org/licenses/by-sa/4.0/
+
+tables.pep is generated from data that is not copied as such:
+    HTML's named character references, from the WHATWG HTML Standard's
+    entities.json (https://html.spec.whatwg.org/entities.json), which
+    WHATWG publishes under CC BY 4.0
+    (https://creativecommons.org/licenses/by/4.0/); and Unicode case
+    folding and general categories from the Unicode Character Database,
+    under the Unicode License (https://www.unicode.org/license.txt).
