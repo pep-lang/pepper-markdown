@@ -9,7 +9,9 @@ pepper="${1:-pepper}"
 build="$(mktemp -d)"
 trap 'rm -rf "$build"' EXIT
 
-# The package is the module `mypkg`: a folder of that name on the import path.
+# The package is the module `markdown`: a folder of that name on the import path.
 mkdir "$build/packages"
-ln -s "$root" "$build/packages/mypkg"
-"$pepper" test -I "$build/packages" "$root/tests"
+ln -s "$root" "$build/packages/markdown"
+# The spec test reads tests/testdata relative to the repository's root.
+cd "$root"
+"$pepper" test -I "$build/packages" tests

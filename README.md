@@ -1,43 +1,98 @@
-# pepper-mypkg
+# pepper-markdown
 
-One paragraph for [Pepper](https://github.com/pep-lang/pepper): what the
-package does and why someone would use it.
+Markdown for [Pepper](https://github.com/pep-lang/pepper): CommonMark
+0.31.2 and the GitHub Flavored Markdown extensions (tables, task lists,
+strikethrough, extended autolinks, the tag filter), parsed into a tree and
+rendered as HTML. It is pure Pepper, with no C library, and passes **every
+example of both specs**: 652 of 652 CommonMark examples and 24 of 24 GFM
+extension examples.
 
-One module, **`mypkg`**:
+One module, **`markdown`**:
 
-- **`mypkg.greet(name)`** returns a greeting for `name`.
+- **`markdown.to_html(text)`** converts Markdown to HTML in one step.
+- **`markdown.parse(text)`** gives the tree: a `Node` for each block and
+  inline, its `kind` a `NodeKind` (`Heading`, `List`, `Link`, `Table`, ...),
+  with the fields that kind describes (`level`, `destination`, `literal`,
+  `tight`, `alignment`, ...) and its `children`. **`node.events()`** walks
+  it as enter and leave `Event`s, for a renderer of your own, and
+  **`markdown.render_html(node)`** renders a tree as HTML.
+- **`markdown.Options(gfm, safe)`** chooses the dialect and the safety:
+  `gfm` (on by default) turns the GFM extensions on, and `safe` makes the
+  HTML safe to show from an untrusted writer.
 
 ```pepper
-import mypkg;
+import markdown;
 
 main(): int {
-    print(mypkg.greet("Ada"));   # Hello, Ada!
+    var text = "# Notes\n\n- [x] parse\n- [ ] render ~~slowly~~\n\n| a | b |\n|---|--:|\n| 1 | 2 |\n";
+    print(markdown.to_html(text));
+
+    # Markdown from users: no raw HTML, no javascript: links.
+    var safe = markdown.Options(safe = true);
+    print(markdown.to_html("Hi <b>there</b> [x](javascript:alert(1))\n", safe));
+    # <p>Hi there <a href="">x</a></p>
+
+    # The tree: count the links.
+    var links = 0;
+    for (var event in markdown.parse("See [a](/a) and www.example.com.\n").events()) {
+        if (event.entering && event.node.kind == markdown.NodeKind.Link) {
+            links += 1;
+        }
+    }
+    print(links);   # 2
     return 0;
 }
 ```
 
+## What it renders
+
+- **CommonMark** as the spec says, and the HTML as commonmark.js and
+  cmark-gfm write it: text is always escaped, link URLs are
+  percent-encoded, and raw HTML passes through.
+- **GFM**: tables (`<th>`/`<td>` with `align`), task list items (a
+  disabled checkbox before the item's text), strikethrough with one or two
+  `~`, autolinks for `www.`, `http://`, `https://`, `ftp://` and email
+  addresses, and the tag filter, which escapes the `<` of `<script>`,
+  `<style>`, `<iframe>`, `<textarea>`, `<title>`, `<xmp>`, `<noembed>`,
+  `<noframes>` and `<plaintext>` in raw HTML. `Options(gfm = false)` is
+  plain CommonMark.
+- **Safe mode** (`Options(safe = true)`) drops raw HTML, blocks and
+  inline, and gives a link or image an empty URL when it is
+  `javascript:`, `vbscript:`, `file:` or `data:` (other than a PNG, GIF,
+  JPEG or WebP image), in any case and through entities
+  (`&#106;avascript:`).
+- **Untrusted input** cannot make it slow or crash it: the inputs that make
+  a naive parser quadratic (unclosed backticks, comments, brackets and
+  emphasis by the thousand) are linear, and nesting is capped (below).
+
 ## Limits
 
-- What it does not do yet.
+- Nesting is capped at 256 levels of blocks (quotes and lists) and 256 of
+  inlines (emphasis, links, images). Deeper markers read as text. Releasing
+  a much deeper tree overflows the stack (pep-lang/pepper#65); the cap
+  lifts once that is fixed.
+- No smart punctuation, footnotes, heading anchors or other extensions
+  beyond GFM's, and no source positions on nodes.
+- HTML is the only renderer; another format is a walk over `events()`.
 
 ## Using it
 
 This repository is a package: `pep.toml` marks its root, and its root
-`module.pep` is the `mypkg` module. Add it to a project under the name
-`mypkg`:
+`module.pep` is the `markdown` module. Add it to a project under the name
+`markdown`:
 
 ```sh
-pepper package add OWNER/pepper-mypkg --name mypkg
+pepper package add pep-lang/pepper-markdown --name markdown
 ```
 
 which writes
 
 ```toml
 [dependencies]
-mypkg = { github = "OWNER/pepper-mypkg" }
+markdown = { github = "pep-lang/pepper-markdown" }
 ```
 
-Without a project, put a folder named `mypkg` that holds (or links to)
+Without a project, put a folder named `markdown` that holds (or links to)
 this repository on the import path: `pepper build -I packages main.pep`.
 
 ## Tests
@@ -46,7 +101,17 @@ this repository on the import path: `pepper build -I packages main.pep`.
 tests/run.sh path/to/pepper
 ```
 
-runs the `[Test]` functions in `tests/` with `pepper test`.
+runs the `[Test]` functions in `tests/` with `pepper test`, from the
+repository's root: every example of the CommonMark spec
+(`tests/testdata/commonmark-spec.json`, with GFM off) and of the GFM
+spec's extensions (`tests/testdata/gfm-extensions.json`, with GFM on),
+each of which must render exactly (`spec_test.pep`), and safe mode, the
+tag filter, the tree, events and pathological inputs
+(`markdown_test.pep`).
+
+`tables.pep` is generated by `scripts/tables.py` (entities and Unicode
+data), and `gfm-extensions.json` by `scripts/gfm_examples.py` from
+cmark-gfm's `test/spec.txt`; each script's header says how to run it.
 
 ## Releasing
 
@@ -59,4 +124,5 @@ package update` find versions by their tags.
 
 ## License
 
-Apache-2.0; see [LICENSE](LICENSE).
+Apache-2.0; see [LICENSE](LICENSE). The spec examples in `tests/testdata`
+are CC-BY-SA 4.0; see [NOTICE](NOTICE).
