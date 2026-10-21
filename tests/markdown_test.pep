@@ -59,6 +59,20 @@ gfm_extensions_turn_off() {
     );
 }
 
+# GFM: a `www.` link starts at a line start, after whitespace or after one
+# of `*`, `_`, `~` and `(`, so not right after a code span, link or tag.
+[Test]
+links_www_only_after_a_space_or_delimiter() {
+    expect_equal(markdown.to_html("`a`www.example.com\n"), "<p><code>a</code>www.example.com</p>\n");
+    expect_equal(markdown.to_html("[a](/b)www.example.com\n"), "<p><a href=\"/b\">a</a>www.example.com</p>\n");
+    expect_equal(markdown.to_html("<i>www.example.com\n"), "<p><i>www.example.com</p>\n");
+    var link = "<a href=\"http://www.example.com\">www.example.com</a>";
+    expect_equal(markdown.to_html("`a` www.example.com\n"), $"<p><code>a</code> {link}</p>\n");
+    expect_equal(markdown.to_html("*a*www.example.com\n"), $"<p><em>a</em>{link}</p>\n");
+    expect_equal(markdown.to_html("*www.example.com*\n"), $"<p><em>{link}</em></p>\n");
+    expect_equal(markdown.to_html("`a`\nwww.example.com\n"), $"<p><code>a</code>\n{link}</p>\n");
+}
+
 [Test]
 renders_task_lists_and_tables() {
     expect_equal(
