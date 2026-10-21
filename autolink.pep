@@ -14,23 +14,48 @@ _autolinked(nodes: Array<Node>): Array<Node> {
     while (!pending.is_empty) {
         var parent = pending.pop();
         var children = Array<Node>();
+        # The character before each text, as a `www.` link sees it: a line
+        # start, or the opening delimiter of emphasis.
+        u8 before = _is_delimited(parent.kind) ? '*' : '\n';
         for (var node in parent.children) {
             if (node.kind == NodeKind.Text) {
-                _split_autolinks(node.literal, children);
+                _split_autolinks(node.literal, before, children);
+                if (node.literal.size > 0) {
+                    before = node.literal.byte_at(node.literal.size - 1);
+                }
                 continue;
             }
             if (node.kind != NodeKind.Link && node.kind != NodeKind.Image && !node.children.is_empty) {
                 pending.append(node);
             }
             children.append(node);
+            before = _last_character(node.kind);
         }
         parent.children = children;
     }
     return top.children;
 }
 
-# Appends `text` to `out` as text and links.
-private _split_autolinks(text: String, out: Array<Node>) {
+# Whether inlines of `kind` open and close with a delimiter (`*`, `_` or
+# `~`), which a `www.` link may follow.
+private _is_delimited(kind: NodeKind): bool {
+    return kind == NodeKind.Emphasis || kind == NodeKind.Strong || kind == NodeKind.Strikethrough;
+}
+
+# The last source character of an inline of `kind` other than text, as a
+# `www.` link after it sees it: a line ending, a closing delimiter, or the
+# `` ` ``, `)` or `>` of a code span, link, image or raw HTML, which a
+# `www.` link may not follow.
+private _last_character(kind: NodeKind): u8 {
+    if (kind == NodeKind.SoftBreak || kind == NodeKind.LineBreak) {
+        return '\n';
+    }
+    return _is_delimited(kind) ? '*' : '`';
+}
+
+# Appends `text` to `out` as text and links; `before` is the character
+# before `text` in the source.
+private _split_autolinks(text: String, before: u8, out: Array<Node>) {
     var cut: ulong = 0;
     var index: ulong = 0;
     while (index < text.size) {
@@ -38,7 +63,7 @@ private _split_autolinks(text: String, out: Array<Node>) {
         var start = index;
         var end: ulong = 0;
         var prefix = "";
-        if (c == 'w' && _may_start_www(text, index)) {
+        if (c == 'w' && _may_start_www(text, index, before)) {
             end = _www_end(text, index);
             prefix = "http://";
         } else if (c == ':' && _starts_at(text, index, "://")) {
@@ -91,16 +116,14 @@ private _text_node(text: String): Node {
     return node;
 }
 
-# Whether a `www.` link may start at `index`: at the start, or after a
-# space or one of `*`, `_`, `~` and `(`.
-private _may_start_www(text: String, index: ulong): bool {
+# Whether a `www.` link may start at `index`: at a line start, or after a
+# space or one of `*`, `_`, `~` and `(` (`previous` is the character before
+# `text`).
+private _may_start_www(text: String, index: ulong, previous: u8): bool {
     if (!_starts_at(text, index, "www.")) {
         return false;
     }
-    if (index == 0) {
-        return true;
-    }
-    var before = text.byte_at(index - 1);
+    var before = index == 0 ? previous : text.byte_at(index - 1);
     return _is_ascii_whitespace(before) || before == '*' || before == '_' || before == '~' || before == '(';
 }
 
