@@ -117,13 +117,13 @@ private _text_node(text: String): Node {
 }
 
 # Whether a `www.` link may start at `index`: at a line start, or after a
-# space or one of `*`, `_`, `~` and `(` (`start` is the character before
+# space or one of `*`, `_`, `~` and `(` (`previous` is the character before
 # `text`).
-private _may_start_www(text: String, index: ulong, start: u8): bool {
+private _may_start_www(text: String, index: ulong, previous: u8): bool {
     if (!_starts_at(text, index, "www.")) {
         return false;
     }
-    var before = index == 0 ? start : text.byte_at(index - 1);
+    var before = index == 0 ? previous : text.byte_at(index - 1);
     return _is_ascii_whitespace(before) || before == '*' || before == '_' || before == '~' || before == '(';
 }
 
