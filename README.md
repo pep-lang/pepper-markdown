@@ -68,9 +68,9 @@ main(): int {
 ## Limits
 
 - Nesting is capped at 256 levels of blocks (quotes and lists) and 256 of
-  inlines (emphasis, links, images). Deeper markers read as text. Releasing
-  a much deeper tree overflows the stack (pep-lang/pepper#65); the cap
-  lifts once that is fixed.
+  inlines (emphasis, links, images). Deeper markers read as text. The cap
+  keeps parsing linear on untrusted input: lists nested thousands deep
+  would take more than linear time.
 - No smart punctuation, footnotes, heading anchors or other extensions
   beyond GFM's, and no source positions on nodes.
 - HTML is the only renderer; another format is a walk over `events()`.

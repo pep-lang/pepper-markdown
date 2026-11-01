@@ -768,10 +768,11 @@ struct _BlockParser {
 
 # The deepest a tree may nest, in blocks and, separately, in inlines:
 # deeper quotes and lists are read as text, and deeper emphasis and links
-# as their delimiters, since releasing a much deeper tree overflows the
-# stack.
-# shortcut: nesting past 256 is lost; lift the cap once pep-lang/pepper#65
-# releases deep trees without recursing.
+# as their delimiters. It keeps untrusted input linear: each line walks
+# the open blocks, so lists nested far deeper parse in more than linear
+# time (2,000 deep, 4 MB of input: 14.6 s uncapped, 2.6 s capped, at -O
+# on Windows). Pepper releases deep trees without recursing since 0.11
+# (pep-lang/pepper#65), so the cap no longer guards the stack.
 const _MAX_DEPTH = 256;
 
 # Whether a blank line separates any two blocks of `blocks`.
